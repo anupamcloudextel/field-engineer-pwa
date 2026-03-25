@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getCases } from '../api/client';
+import { enableCasePushNotifications } from '../pushNotifications';
 import CaseItem from '../components/CaseItem';
 import StatusChip from '../components/StatusChip';
 
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pushStatus, setPushStatus] = useState('');
   const tabParam = searchParams.get('tab') || 'assigned';
   const [tab, setTab] = useState(TAB_MAP[tabParam] ?? 0);
 
@@ -67,6 +69,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchCases();
+  }, [email]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function initPush() {
+      if (!email) return;
+      try {
+        const res = await enableCasePushNotifications(email);
+        if (cancelled) return;
+        if (res?.success) setPushStatus(res.alreadySubscribed ? 'Notifications enabled' : 'Notifications enabled');
+        else if (res?.message) setPushStatus(res.message);
+      } catch {
+        if (!cancelled) setPushStatus('Push setup failed (check browser notification permission / HTTPS / VAPID keys)');
+      }
+    }
+    initPush();
+    return () => {
+      cancelled = true;
+    };
   }, [email]);
 
   const filtered = filterByTab(cases, tab);
@@ -128,6 +149,11 @@ export default function Dashboard() {
         </div>
 
         <main className="p-4 sm:p-6">
+          {pushStatus && (
+            <div className="mb-4 p-3 rounded-xl bg-slate-100 text-slate-700 text-xs sm:text-sm text-center">
+              {pushStatus}
+            </div>
+          )}
           {loading ? (
             <div className="flex justify-center py-16">
               <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
