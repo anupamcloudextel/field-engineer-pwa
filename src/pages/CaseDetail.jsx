@@ -1,36 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getCases, updateCase } from '../api/client';
+import { getCases, updateCase, getPicklistValues, getUniqueValues } from '../api/client';
 
 const STATUS_OPTIONS = ['In Progress', 'Assigned', 'Resolved', 'Rework', 'Closed'];
 
-const RCA_OPTIONS = [
-  'Auto Restored',
-  'Cable cut by Local Authority person ( MSEB/BMC/BESCOM/PMC etc )',
-  'Cable cut/damge due to construction work',
-  'Core Damage _Single core',
-  'Core damage in UG',
-  'Core issue',
-  'CRQ / CUTOVER planned',
-  'DRIVE _ Cable cutting',
-  'DRIVE _ Tree cutting',
-  'DUPLICATE TT',
-  'Fat Power OK , Need to forward to HDO bin',
-  'Fiber / Network damage by LCO',
-  'Fiber cut by Unknow person',
-  'Fiber cut due to heavy vehicle movement',
-  'Fiber cut in Tiffin box',
-  'Input Patch code Removed in FAT / FDC',
-  'No issue in CE media',
-  'NON CE CASE',
-  'OTHER ISSUE',
-  'Patch code Damage',
-  'Pigtail Damage',
-  'RAT bite',
-  'SFP RELATED ISSUE',
-  'Offline TT',
-];
+const YES_NO_OPTIONS = ['YES', 'NO'];
 
 export default function CaseDetail() {
   const { caseId } = useParams();
@@ -48,21 +23,21 @@ export default function CaseDetail() {
   const [status, setStatus] = useState('');
   const [rcaReason, setRcaReason] = useState('');
   const [rcaComments, setRcaComments] = useState('');
+  const [leptonNetworkId, setLeptonNetworkId] = useState('');
   const [materialNeeded, setMaterialNeeded] = useState('');
-  const [material1, setMaterial1] = useState('');
-  const [material1Quantity, setMaterial1Quantity] = useState('');
+  const [visibleMaterials, setVisibleMaterials] = useState(1);
+  const [materials, setMaterials] = useState(
+    Array.from({ length: 5 }, () => ({ name: '', quantity: '' }))
+  );
+  const [activeMaterialIndex, setActiveMaterialIndex] = useState(null); // null or 0-4
   const [vendorName, setVendorName] = useState('');
   const [civilNeeded, setCivilNeeded] = useState('');
 
   // Customer Updates (Restoration Updates)
-  const [restorationUpdate1, setRestorationUpdate1] = useState('');
-  const [restorationUpdate1DateTime, setRestorationUpdate1DateTime] = useState('');
-  const [restorationUpdate2, setRestorationUpdate2] = useState('');
-  const [restorationUpdate2DateTime, setRestorationUpdate2DateTime] = useState('');
-  const [restorationUpdate3, setRestorationUpdate3] = useState('');
-  const [restorationUpdate3DateTime, setRestorationUpdate3DateTime] = useState('');
-  const [restorationUpdate4, setRestorationUpdate4] = useState('');
-  const [restorationUpdate4DateTime, setRestorationUpdate4DateTime] = useState('');
+  const [visibleUpdates, setVisibleUpdates] = useState(1);
+  const [restorationUpdates, setRestorationUpdates] = useState(
+    Array.from({ length: 10 }, () => ({ text: '', dateTime: '' }))
+  );
 
   // Vendor section (additional fields)
   const [ceTeamAcknowledgement, setCeTeamAcknowledgement] = useState('');
@@ -80,22 +55,25 @@ export default function CaseDetail() {
   const [cableEndReading, setCableEndReading] = useState('');
   const [aEndLatlong, setAEndLatlong] = useState('');
   const [bEndLatlong, setBEndLatlong] = useState('');
-  const [vendorUpdate1, setVendorUpdate1] = useState('');
-  const [vendorUpdate1DateTime, setVendorUpdate1DateTime] = useState('');
-  const [vendorUpdate2, setVendorUpdate2] = useState('');
-  const [vendorUpdate2DateTime, setVendorUpdate2DateTime] = useState('');
-  const [vendorUpdate3, setVendorUpdate3] = useState('');
-  const [vendorUpdate3DateTime, setVendorUpdate3DateTime] = useState('');
-  const [vendorUpdate4, setVendorUpdate4] = useState('');
-  const [vendorUpdate4DateTime, setVendorUpdate4DateTime] = useState('');
-  const [vendorUpdate5, setVendorUpdate5] = useState('');
-  const [vendorUpdate5DateTime, setVendorUpdate5DateTime] = useState('');
+  const [visibleVendorUpdates, setVisibleVendorUpdates] = useState(1);
+  const [vendorUpdates, setVendorUpdates] = useState(
+    Array.from({ length: 10 }, () => ({ text: '', dateTime: '' }))
+  );
   const [checkTheLinkStatusDateTime, setCheckTheLinkStatusDateTime] = useState('');
   const [genericCauseOfCableCut, setGenericCauseOfCableCut] = useState('');
   const [delayReason, setDelayReason] = useState('');
   const [laserStatus, setLaserStatus] = useState('');
   const [showStatusSheet, setShowStatusSheet] = useState(false);
   const [showRcaSheet, setShowRcaSheet] = useState(false);
+  const [showGenericCauseSheet, setShowGenericCauseSheet] = useState(false);
+  const [showDelayReasonSheet, setShowDelayReasonSheet] = useState(false);
+
+  const [delayComments, setDelayComments] = useState('');
+
+  const [materialOptions, setMaterialOptions] = useState(Array.from({ length: 5 }, () => []));
+  const [rcaOptions, setRcaOptions] = useState([]);
+  const [genericCauseOptions, setGenericCauseOptions] = useState([]);
+  const [delayReasonOptions, setDelayReasonOptions] = useState([]);
 
   const isReadOnly = readOnlyParam;
 
@@ -139,33 +117,54 @@ export default function CaseDetail() {
           setStatus(found.Status || found.status || 'In Progress');
           setRcaReason(found.RCA_Reason__c || found.rcaReason || '');
           setRcaComments(found.RCA_Comments__c || found.rcaComments || '');
+          setLeptonNetworkId(found.LEPTON_Network_Id__c || found.leptonNetworkId || '');
           const rawMaterialNeeded = (found.Material_Needed__c || found.materialNeeded || '').trim();
           // Normalise YES/NO from Salesforce to match UI options
           setMaterialNeeded(rawMaterialNeeded ? rawMaterialNeeded.toUpperCase() : '');
-          setMaterial1(found.Material1__c || found.material1 || '');
-          setMaterial1Quantity(
-            found.Material_1_Quantity__c != null ? String(found.Material_1_Quantity__c) : ''
+          setMaterials(
+            Array.from({ length: 5 }, (_, i) => {
+              const idx = i + 1;
+              const name = found[`Material${idx}__c`] || found[`material${idx}`] || '';
+              const qty = found[`Material_${idx}_Quantity__c`] != null ? String(found[`Material_${idx}_Quantity__c`]) : '';
+              return { name, quantity: qty };
+            })
           );
+          
+          // Calculate max visible for Materials
+          let maxMatVisible = 1;
+          for (let i = 5; i >= 1; i--) {
+            const val = found[`Material${i}__c`] || found[`material${i}`];
+            if (val && String(val).trim()) {
+              maxMatVisible = i;
+              break;
+            }
+          }
+          setVisibleMaterials(maxMatVisible);
           setVendorName(found.Vendor_Name__c || found.vendorName || '');
           const rawCivilNeeded = (found.Civil_Needed__c || found.civilNeeded || '').trim();
           setCivilNeeded(rawCivilNeeded ? rawCivilNeeded.toUpperCase() : '');
 
-          setRestorationUpdate1(String(found.Restoration_Update_1__c || found.restorationUpdate1 || ''));
-          setRestorationUpdate1DateTime(
-            toDatetimeLocal(found.Restoration_Update_1_Date_Time__c || found.restorationUpdate1DateTime || '')
+          setRestorationUpdates(
+            Array.from({ length: 10 }, (_, i) => {
+              const idx = i + 1;
+              const text = String(found[`Restoration_Update_${idx}__c`] || found[`restorationUpdate${idx}`] || '');
+              const dt = toDatetimeLocal(
+                found[`Restoration_Update_${idx}_Date_Time__c`] || found[`restorationUpdate${idx}DateTime`] || ''
+              );
+              return { text, dateTime: dt };
+            })
           );
-          setRestorationUpdate2(String(found.Restoration_Update_2__c || found.restorationUpdate2 || ''));
-          setRestorationUpdate2DateTime(
-            toDatetimeLocal(found.Restoration_Update_2_Date_Time__c || found.restorationUpdate2DateTime || '')
-          );
-          setRestorationUpdate3(String(found.Restoration_Update_3__c || found.restorationUpdate3 || ''));
-          setRestorationUpdate3DateTime(
-            toDatetimeLocal(found.Restoration_Update_3_Date_Time__c || found.restorationUpdate3DateTime || '')
-          );
-          setRestorationUpdate4(String(found.Restoration_Update_4__c || found.restorationUpdate4 || ''));
-          setRestorationUpdate4DateTime(
-            toDatetimeLocal(found.Restoration_Update_4_Date_Time__c || found.restorationUpdate4DateTime || '')
-          );
+          
+          // Calculate max visible based on data
+          let maxVisible = 1;
+          for (let i = 10; i >= 1; i--) {
+            const val = found[`Restoration_Update_${i}__c`] || found[`restorationUpdate${i}`];
+            if (val && String(val).trim()) {
+              maxVisible = i;
+              break;
+            }
+          }
+          setVisibleUpdates(maxVisible);
 
           setCeTeamAcknowledgement(toDatetimeLocal(found.CE_Team_Acknowledgement__c || found.ceTeamAcknowledgement || ''));
           setVendorSplicerAssigned(String(found.Vendor_Splicer_Assigned__c || found.vendorSplicerAssigned || ''));
@@ -192,26 +191,28 @@ export default function CaseDetail() {
           setAEndLatlong(String(found.A_Latlong__c || found.aEndLatlong || ''));
           setBEndLatlong(String(found.B_Latlong__c || found.bEndLatlong || ''));
 
-          setVendorUpdate1(String(found.Vendor_Update_1__c || found.vendorUpdate1 || ''));
-          setVendorUpdate1DateTime(
-            toDatetimeLocal(found.Vendor_Update_1_Date_Time__c || found.vendorUpdate1DateTime || '')
+          setVendorUpdates(
+            Array.from({ length: 10 }, (_, i) => {
+              const idx = i + 1;
+              const textValue = found[`Vendor_Update_${idx}__c`] || found[`vendorUpdate${idx}`];
+              const dtValue = found[`Vendor_Update_${idx}_Date_Time__c`] || found[`vendorUpdate${idx}DateTime`];
+              return { 
+                text: textValue ? String(textValue) : '', 
+                dateTime: dtValue ? toDatetimeLocal(dtValue) : '' 
+              };
+            })
           );
-          setVendorUpdate2(String(found.Vendor_Update_2__c || found.vendorUpdate2 || ''));
-          setVendorUpdate2DateTime(
-            toDatetimeLocal(found.Vendor_Update_2_Date_Time__c || found.vendorUpdate2DateTime || '')
-          );
-          setVendorUpdate3(String(found.Vendor_Update_3__c || found.vendorUpdate3 || ''));
-          setVendorUpdate3DateTime(
-            toDatetimeLocal(found.Vendor_Update_3_Date_Time__c || found.vendorUpdate3DateTime || '')
-          );
-          setVendorUpdate4(String(found.Vendor_Update_4__c || found.vendorUpdate4 || ''));
-          setVendorUpdate4DateTime(
-            toDatetimeLocal(found.Vendor_Update_4_Date_Time__c || found.vendorUpdate4DateTime || '')
-          );
-          setVendorUpdate5(String(found.Vendor_Update_5__c || found.vendorUpdate5 || ''));
-          setVendorUpdate5DateTime(
-            toDatetimeLocal(found.Vendor_Update_5_Date_Time__c || found.vendorUpdate5DateTime || '')
-          );
+          
+          // Calculate max visible for Vendor Updates
+          let maxVendorVisible = 1;
+          for (let i = 10; i >= 1; i--) {
+            const val = found[`Vendor_Update_${i}__c`] || found[`vendorUpdate${i}`];
+            if (val && String(val).trim()) {
+              maxVendorVisible = i;
+              break;
+            }
+          }
+          setVisibleVendorUpdates(maxVendorVisible);
 
           setCheckTheLinkStatusDateTime(
             toDatetimeLocal(found.Check_The_Link_Status_Date_Time__c || found.checkTheLinkStatusDateTime || '')
@@ -221,6 +222,11 @@ export default function CaseDetail() {
 
           const rawLaser = (found.Laser_Status__c || found.laserStatus || '').trim();
           setLaserStatus(rawLaser ? rawLaser.toUpperCase() : '');
+          setDelayComments(found.Delay_Comments__c || found.delayComments || '');
+
+          // Prioritize Field_Engineer_formula__c as requested
+          const vn = found.Field_Engineer_formula__c || found.fieldEngineerFormula || found.Vendor_Name__c || found.vendorName || '';
+          setVendorName(vn);
         } else {
           setError('Case not found');
         }
@@ -230,7 +236,39 @@ export default function CaseDetail() {
         setLoading(false);
       }
     }
+    async function loadPicklists() {
+      const picklistFields = [
+        ...Array.from({ length: 5 }, (_, i) => ({ 
+          key: `Material${i + 1}__c`, 
+          index: i 
+        })),
+        { key: 'RCA_Reason__c', setter: setRcaOptions },
+        { key: 'Generic_Cause_of_Cable_Cut__c', setter: setGenericCauseOptions },
+        { key: 'Delay_Reason__c', setter: setDelayReasonOptions },
+      ];
+      try {
+        await Promise.all([
+          ...picklistFields.map(async (f) => {
+            const res = await getPicklistValues('Case', f.key);
+            if (res.success && Array.isArray(res.values) && res.values.length > 0) {
+              if (f.index !== undefined) {
+                setMaterialOptions(prev => {
+                  const next = [...prev];
+                  next[f.index] = res.values;
+                  return next;
+                });
+              } else {
+                f.setter(res.values);
+              }
+            }
+          }),
+        ]);
+      } catch (err) {
+        console.error('Failed to fetch picklist values:', err);
+      }
+    }
     load();
+    loadPicklists();
   }, [email, caseId]);
 
   const handleUpdate = async () => {
@@ -251,57 +289,54 @@ export default function CaseDetail() {
     setUpdating(true);
     setError(null);
     try {
-      const res = await updateCase(
-        caseId,
-        status,
-        rcaReason,
-        rcaComments,
-        email,
-        materialNeeded,
-        material1,
-        material1Quantity,
-        vendorName,
-        civilNeeded,
-        {
-          Restoration_Update_1__c: restorationUpdate1,
-          Restoration_Update_1_Date_Time__c: restorationUpdate1DateTime,
-          Restoration_Update_2__c: restorationUpdate2,
-          Restoration_Update_2_Date_Time__c: restorationUpdate2DateTime,
-          Restoration_Update_3__c: restorationUpdate3,
-          Restoration_Update_3_Date_Time__c: restorationUpdate3DateTime,
-          Restoration_Update_4__c: restorationUpdate4,
-          Restoration_Update_4_Date_Time__c: restorationUpdate4DateTime,
-          CE_Team_Acknowledgement__c: ceTeamAcknowledgement,
-          Vendor_Splicer_Assigned__c: vendorSplicerAssigned,
-          Splicer_Available__c: splicerAlignDateTime,
-          Splicer_Acknowledgement__c: splicerAcknowledgement,
-          Team_Reached_Time_Mark_On_Site__c: teamReachedTimeMarkOnSite,
-          Fault_Identification__c: faultIdentification,
-          Fault_Found__c: faultIdentification === 'YES' ? faultFound : '',
-          Restoration_Start__c: restorationStart,
-          Other_Materials__c: otherMaterials,
-          Cable_Start_Reading__c: cableStartReading,
-          Cable_ID__c: cableId,
-          PPE_Compliance__c: ppeCompliance,
-          Cable_End_Reading__c: cableEndReading,
-          A_Latlong__c: aEndLatlong,
-          B_Latlong__c: bEndLatlong,
-          Vendor_Update_1__c: vendorUpdate1,
-          Vendor_Update_1_Date_Time__c: vendorUpdate1DateTime,
-          Vendor_Update_2__c: vendorUpdate2,
-          Vendor_Update_2_Date_Time__c: vendorUpdate2DateTime,
-          Vendor_Update_3__c: vendorUpdate3,
-          Vendor_Update_3_Date_Time__c: vendorUpdate3DateTime,
-          Vendor_Update_4__c: vendorUpdate4,
-          Vendor_Update_4_Date_Time__c: vendorUpdate4DateTime,
-          Vendor_Update_5__c: vendorUpdate5,
-          Vendor_Update_5_Date_Time__c: vendorUpdate5DateTime,
-          Check_The_Link_Status_Date_Time__c: checkTheLinkStatusDateTime,
-          Generic_Cause_of_Cable_Cut__c: genericCauseOfCableCut,
-          Delay_Reason__c: delayReason,
-          Laser_Status__c: laserStatus,
-        }
-      );
+      const res = await updateCase(caseId, {
+        Status: status,
+        feEmail: email?.trim?.() || '', // FE who resolved - used to filter Resolved tab
+        RCA_Reason__c: rcaReason,
+        RCA_Comments__c: rcaComments,
+        Material_Needed__c: materialNeeded,
+        ...materials.reduce((acc, curr, i) => {
+          const idx = i + 1;
+          acc[`Material${idx}__c`] = curr.name;
+          acc[`Material_${idx}_Quantity__c`] = curr.quantity;
+          return acc;
+        }, {}),
+        Vendor_Name__c: vendorName,
+        Civil_Needed__c: civilNeeded,
+        ...restorationUpdates.reduce((acc, curr, i) => {
+          const idx = i + 1;
+          acc[`Restoration_Update_${idx}__c`] = curr.text;
+          acc[`Restoration_Update_${idx}_Date_Time__c`] = curr.dateTime;
+          return acc;
+        }, {}),
+        CE_Team_Acknowledgement__c: ceTeamAcknowledgement,
+        Vendor_Splicer_Assigned__c: vendorSplicerAssigned,
+        Splicer_Available__c: splicerAlignDateTime,
+        Splicer_Acknowledgement__c: splicerAcknowledgement,
+        Team_Reached_Time_Mark_On_Site__c: teamReachedTimeMarkOnSite,
+        Fault_Identification__c: faultIdentification,
+        Fault_Found__c: faultIdentification === 'YES' ? faultFound : '',
+        Restoration_Start__c: restorationStart,
+        Other_Materials__c: otherMaterials,
+        Cable_Start_Reading__c: cableStartReading,
+        Cable_ID__c: cableId,
+        PPE_Compliance__c: ppeCompliance,
+        Cable_End_Reading__c: cableEndReading,
+        A_Latlong__c: aEndLatlong,
+        B_Latlong__c: bEndLatlong,
+        ...vendorUpdates.reduce((acc, curr, i) => {
+          const idx = i + 1;
+          acc[`Vendor_Update_${idx}__c`] = curr.text;
+          acc[`Vendor_Update_${idx}_Date_Time__c`] = curr.dateTime;
+          return acc;
+        }, {}),
+        Check_The_Link_Status_Date_Time__c: checkTheLinkStatusDateTime,
+        LEPTON_Network_Id__c: leptonNetworkId,
+        Generic_Cause_of_Cable_Cut__c: genericCauseOfCableCut,
+        Delay_Reason__c: delayReason,
+        Delay_Comments__c: delayComments,
+        Laser_Status__c: laserStatus,
+      });
       if (res.success) {
         setSuccess(status.toLowerCase() === 'resolved' ? 'The case has been resolved.' : 'Case updated successfully!');
       } else {
@@ -375,112 +410,31 @@ export default function CaseDetail() {
   const isOHFC = lobNormalized === 'ohfc';
   const isFTTH = lobNormalized === 'ftth';
 
+  const createdDateRaw = caseData.CreatedDate ?? caseData.createdDate;
+  const createdDate = createdDateRaw ? new Date(createdDateRaw) : null;
+  const formattedCreatedDate = createdDate
+    ? createdDate.toLocaleString('en-US', {
+      month: 'numeric', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+    })
+    : 'N/A';
+
+  const getSlaInfo = () => {
+    if (!createdDate) return null;
+    const now = new Date();
+    const target = new Date(createdDate.getTime() + 4 * 60 * 60 * 1000);
+    const diffMs = now - target;
+    const isOverdue = diffMs > 0;
+    const absDiff = Math.abs(diffMs);
+    const hours = Math.floor(absDiff / (1000 * 60 * 60));
+    const mins = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const timeStr = `${hours}:${mins < 10 ? '0' : ''}${mins}`;
+    return { label: isOverdue ? `${timeStr} overdue` : `${timeStr} remaining`, isOverdue };
+  };
+  const slaInfo = getSlaInfo();
+
   const MATERIAL_NEEDED_OPTIONS = ['YES', 'NO'];
-  const MATERIAL1_OPTIONS = [
-    'Tiffin Box 2 WAY',
-    'Tiffin Box 4 WAY',
-    'Joint Closure 48F',
-    'Joint Closure 96F',
-    'PIGTAIL SC/APC',
-    'Patch Cord',
-    '12F Optical Fiber ADSS',
-    '24F Optical Fiber ADSS',
-    '48F Optical Fiber ADSS',
-    '96F Optical Fiber ADSS',
-    '12F Optical Fiber Raiser',
-    '12F Optical Fiber Armoured',
-    '24F Optical Fiber Raiser',
-    '24F Optical Fiber Armoured',
-    '48F Optical Fiber Armoured',
-    '96F Optical Fiber Armoured',
-    '144F Optical Fiber ADSS',
-    '144F Optical Fiber Armoured',
-    'Battery',
-    'Fiber Cable',
-    '4F ADSS Fiber',
-    '6F ADSS Fiber',
-  ];
-
   const YES_NO_OPTIONS = ['YES', 'NO'];
-  const GENERIC_CAUSE_OF_CABLE_CUT_OPTIONS = [
-    'Access Issue',
-    'CE No Issue',
-    'CRQ Activity',
-    'Customer End Issue',
-    'Customer Own Route',
-    'Disconnected',
-    'FAT Related Issue',
-    'FDC Related Issue',
-    'Fiber Core Issue - in Aerial Fiber',
-    'Fiber Core Issue - in FMS',
-    'Fiber Core Issue - in Tiffin',
-    'Fiber Core Issue - Pigtail Damage',
-    'Fiber Cut - in Closure / Tiffin',
-    'Fiber Cut - Civic Authorities',
-    'Fiber Cut - Construction Work',
-    'Fiber Cut - Electricity Board',
-    'Fiber Cut - Festival Celebration',
-    'Fiber Cut - Heavy Vehicle Movement',
-    'Fiber Cut - Local People',
-    'Fiber Cut - Metro Work',
-    'Fiber Cut - Miscellaneous',
-    'Fiber Cut - Road Crossing',
-    'Fiber Cut - Street Pole Maintenance',
-    'HDO Bin TT',
-    'IBD Fiber Cut',
-    'Invalid TT',
-    'JC End Issue',
-    'Low RX TT',
-    'Material Use Entry',
-    'New Node Inserted',
-    'No Fiber Issue - ATL Issue',
-    'No Fiber Issue - Patch Cord Issue',
-    'No Fiber Issue - VIL Issue',
-    'Node End Issue',
-    'Not in HDO',
-    'Not in OHFC',
-    'OLT Card Issue',
-    'Passive + Active',
-    'Plan Activity',
-    'Power Issue',
-    'Project Team Working',
-    'Signoff Pending',
-    'Single Core Issue in Aerial',
-    'Tree Cutting Drive Cut',
-    'Under UG Route',
-  ];
-
-  const DELAY_REASON_OPTIONS = [
-    'Access issue',
-    'BMC Issue',
-    'Confirmation Time Deducted',
-    'Core Issue',
-    'Customer Team Waiting',
-    'Electricity Work Going On',
-    'Heavy Bend Multiple Location',
-    'Heavy Rain',
-    'JCB Work Going On',
-    'Local issue',
-    'Market Area and Rush',
-    'MBMC Issue',
-    'Metro Work Going On',
-    'MSEB Issue',
-    'Multiple Cuts on Route',
-    'NMMC Issue',
-    'Partial Damage',
-    'Police Issue',
-    'Railway Person Issue',
-    'Railway Track Crossing',
-    'Rerouted',
-    'Road Crossing / Heavy Traffic',
-    'Route Divert',
-    'TMC Issue',
-    'Tree Cutting Going On',
-    'Vendor - Civil Team Issue',
-    'Vendor - FRB Issue',
-    'Vendor - Team Busy in Other Faults',
-    'Other',
-  ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-safe">
@@ -528,6 +482,17 @@ export default function CaseDetail() {
             <p className="flex items-center gap-2 text-slate-600">
               <span className="font-medium text-slate-500">LOB:</span> {lob || 'N/A'}
             </p>
+            <p className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium text-slate-500">Created Date:</span> {formattedCreatedDate}
+            </p>
+            {slaInfo && (
+              <p className="flex items-center gap-2 text-slate-600">
+                <span className="font-medium text-slate-500">SLA (4 Hours):</span>
+                <span className={`font-bold ${slaInfo.isOverdue ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {slaInfo.label}
+                </span>
+              </p>
+            )}
 
             {/* Small Cell: Site ID, Alarm Name - hidden for OHFC and FTTH */}
             {(isSmallCell || (!isOHFC && !isFTTH)) && (
@@ -626,95 +591,63 @@ export default function CaseDetail() {
             </div>
 
             <div className="pt-2">
-              <h3 className="text-base font-semibold text-slate-800 mb-3">Customer Updates</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-800">Customer Updates</h3>
+                {visibleUpdates < 10 && !isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleUpdates(prev => Math.min(10, prev + 1))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors text-xs font-semibold"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Update
+                  </button>
+                )}
+              </div>
+              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 1</label>
-                  <textarea
-                    value={restorationUpdate1}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate1(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter customer update 1..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 1 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={restorationUpdate1DateTime || ''}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate1DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 2</label>
-                  <textarea
-                    value={restorationUpdate2}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate2(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter customer update 2..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 2 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={restorationUpdate2DateTime || ''}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate2DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 3</label>
-                  <textarea
-                    value={restorationUpdate3}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate3(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter customer update 3..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 3 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={restorationUpdate3DateTime || ''}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate3DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 4</label>
-                  <textarea
-                    value={restorationUpdate4}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate4(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter customer update 4..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update 4 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={restorationUpdate4DateTime || ''}
-                    onChange={(e) => !isReadOnly && setRestorationUpdate4DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
+                {restorationUpdates.slice(0, visibleUpdates).map((update, i) => {
+                  const idx = i + 1;
+                  return (
+                    <div key={idx} className={`sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 ${idx > 1 ? 'border-t border-slate-100 pt-4 mt-2' : ''}`}>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update {idx}</label>
+                        <textarea
+                          value={update.text}
+                          onChange={(e) => {
+                            if (!isReadOnly) {
+                              const newUpdates = [...restorationUpdates];
+                              newUpdates[i].text = e.target.value;
+                              setRestorationUpdates(newUpdates);
+                            }
+                          }}
+                          readOnly={isReadOnly}
+                          rows={2}
+                          placeholder={`Enter customer update ${idx}...`}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Update {idx} Date/Time</label>
+                        <input
+                          type="datetime-local"
+                          value={update.dateTime || ''}
+                          onChange={(e) => {
+                            if (!isReadOnly) {
+                              const newUpdates = [...restorationUpdates];
+                              newUpdates[i].dateTime = e.target.value;
+                              setRestorationUpdates(newUpdates);
+                            }
+                          }}
+                          readOnly={isReadOnly}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -728,7 +661,7 @@ export default function CaseDetail() {
                     value={vendorName}
                     onChange={(e) => !isReadOnly && setVendorName(e.target.value)}
                     readOnly={isReadOnly}
-                    placeholder="Enter vendor name"
+                    placeholder="Vendor Name"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
                   />
                 </div>
@@ -736,7 +669,13 @@ export default function CaseDetail() {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Civil Needed</label>
                   <select
                     value={civilNeeded || ''}
-                    onChange={(e) => !isReadOnly && setCivilNeeded(e.target.value)}
+                    onChange={(e) => {
+                      if (!isReadOnly) {
+                        const v = e.target.value;
+                        setCivilNeeded(v);
+                        if (v !== 'YES') setRestorationStart('');
+                      }
+                    }}
                     disabled={isReadOnly}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
                   >
@@ -747,6 +686,18 @@ export default function CaseDetail() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">LEPTON Network Id</label>
+                  <input
+                    type="text"
+                    value={leptonNetworkId}
+                    onChange={(e) => !isReadOnly && setLeptonNetworkId(e.target.value)}
+                    readOnly={isReadOnly}
+                    placeholder="Enter LEPTON Network Id"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                  />
                 </div>
 
                 <div>
@@ -842,16 +793,18 @@ export default function CaseDetail() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Restoration Start</label>
-                  <input
-                    type="datetime-local"
-                    value={restorationStart || ''}
-                    onChange={(e) => !isReadOnly && setRestorationStart(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
+                {civilNeeded === 'YES' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Restoration Start</label>
+                    <input
+                      type="datetime-local"
+                      value={restorationStart || ''}
+                      onChange={(e) => !isReadOnly && setRestorationStart(e.target.value)}
+                      readOnly={isReadOnly}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                    />
+                  </div>
+                )}
 
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Other Materials</label>
@@ -942,114 +895,65 @@ export default function CaseDetail() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 1</label>
-                  <textarea
-                    value={vendorUpdate1}
-                    onChange={(e) => !isReadOnly && setVendorUpdate1(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter vendor update 1..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 1 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={vendorUpdate1DateTime || ''}
-                    onChange={(e) => !isReadOnly && setVendorUpdate1DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 2</label>
-                  <textarea
-                    value={vendorUpdate2}
-                    onChange={(e) => !isReadOnly && setVendorUpdate2(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter vendor update 2..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 2 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={vendorUpdate2DateTime || ''}
-                    onChange={(e) => !isReadOnly && setVendorUpdate2DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 3</label>
-                  <textarea
-                    value={vendorUpdate3}
-                    onChange={(e) => !isReadOnly && setVendorUpdate3(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter vendor update 3..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 3 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={vendorUpdate3DateTime || ''}
-                    onChange={(e) => !isReadOnly && setVendorUpdate3DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 4</label>
-                  <textarea
-                    value={vendorUpdate4}
-                    onChange={(e) => !isReadOnly && setVendorUpdate4(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter vendor update 4..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 4 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={vendorUpdate4DateTime || ''}
-                    onChange={(e) => !isReadOnly && setVendorUpdate4DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 5</label>
-                  <textarea
-                    value={vendorUpdate5}
-                    onChange={(e) => !isReadOnly && setVendorUpdate5(e.target.value)}
-                    readOnly={isReadOnly}
-                    rows={2}
-                    placeholder="Enter vendor update 5..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update 5 Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={vendorUpdate5DateTime || ''}
-                    onChange={(e) => !isReadOnly && setVendorUpdate5DateTime(e.target.value)}
-                    readOnly={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                  />
+                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-semibold text-slate-800">Vendor Updates</h3>
+                    {visibleVendorUpdates < 10 && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleVendorUpdates(prev => Math.min(10, prev + 1))}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors text-xs font-semibold"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Vendor Update
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {vendorUpdates.slice(0, visibleVendorUpdates).map((update, i) => {
+                      const idx = i + 1;
+                      return (
+                        <div key={idx} className={`sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 ${idx > 1 ? 'border-t border-slate-100 pt-4 mt-2' : ''}`}>
+                          <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update {idx}</label>
+                            <textarea
+                              value={update.text}
+                              onChange={(e) => {
+                                if (!isReadOnly) {
+                                  const newUpdates = [...vendorUpdates];
+                                  newUpdates[i].text = e.target.value;
+                                  setVendorUpdates(newUpdates);
+                                }
+                              }}
+                              readOnly={isReadOnly}
+                              rows={2}
+                              placeholder={`Enter vendor update ${idx}...`}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Vendor Update {idx} Date/Time</label>
+                            <input
+                              type="datetime-local"
+                              value={update.dateTime || ''}
+                              onChange={(e) => {
+                                if (!isReadOnly) {
+                                  const newUpdates = [...vendorUpdates];
+                                  newUpdates[i].dateTime = e.target.value;
+                                  setVendorUpdates(newUpdates);
+                                }
+                              }}
+                              readOnly={isReadOnly}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -1084,36 +988,52 @@ export default function CaseDetail() {
 
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Generic Cause of Cable Cut</label>
-                  <select
-                    value={genericCauseOfCableCut || ''}
-                    onChange={(e) => !isReadOnly && setGenericCauseOfCableCut(e.target.value)}
+                  <button
+                    type="button"
+                    onClick={() => !isReadOnly && setShowGenericCauseSheet(true)}
                     disabled={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-left flex items-center justify-between tap-highlight-none disabled:opacity-70"
                   >
-                    <option value="">Select</option>
-                    {GENERIC_CAUSE_OF_CABLE_CUT_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                    <span className={!genericCauseOfCableCut ? 'text-slate-400' : ''}>
+                      {genericCauseOfCableCut || 'Select Generic Cause'}
+                    </span>
+                    {!isReadOnly && (
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Delay Reason</label>
-                  <select
-                    value={delayReason || ''}
-                    onChange={(e) => !isReadOnly && setDelayReason(e.target.value)}
+                  <button
+                    type="button"
+                    onClick={() => !isReadOnly && setShowDelayReasonSheet(true)}
                     disabled={isReadOnly}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-left flex items-center justify-between tap-highlight-none disabled:opacity-70"
                   >
-                    <option value="">Select</option>
-                    {DELAY_REASON_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                    <span className={!delayReason ? 'text-slate-400' : ''}>
+                      {delayReason || 'Select Delay Reason'}
+                    </span>
+                    {!isReadOnly && (
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Delay Comments</label>
+                  <textarea
+                    value={delayComments}
+                    onChange={(e) => !isReadOnly && setDelayComments(e.target.value)}
+                    readOnly={isReadOnly}
+                    placeholder="Enter delay comments..."
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                  />
                 </div>
 
                 <div className="sm:col-span-2">
@@ -1134,38 +1054,69 @@ export default function CaseDetail() {
                 </div>
 
                 {materialNeeded === 'YES' && (
-                  <>
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Material 1</label>
-                      <select
-                        value={material1 || ''}
-                        onChange={(e) => !isReadOnly && setMaterial1(e.target.value)}
-                        disabled={isReadOnly}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                      >
-                        <option value="">Select material</option>
-                        {MATERIAL1_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="sm:col-span-2 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-slate-800">Materials Used</h4>
+                      {visibleMaterials < 5 && !isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => setVisibleMaterials(prev => Math.min(5, prev + 1))}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors text-xs font-semibold"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Material
+                        </button>
+                      )}
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Material 1 Quantity (meters/nos)
-                      </label>
-                      <input
-                        type="text"
-                        value={material1Quantity}
-                        onChange={(e) => !isReadOnly && setMaterial1Quantity(e.target.value)}
-                        readOnly={isReadOnly}
-                        placeholder="Enter quantity"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
-                      />
-                    </div>
-                  </>
+                    {materials.slice(0, visibleMaterials).map((mat, i) => {
+                      const idx = i + 1;
+                      return (
+                        <div key={idx} className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${idx > 1 ? 'border-t border-slate-100 pt-4 mt-2' : ''}`}>
+                          <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Material {idx}</label>
+                            <button
+                              type="button"
+                              onClick={() => !isReadOnly && setActiveMaterialIndex(i)}
+                              disabled={isReadOnly}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-left flex items-center justify-between tap-highlight-none disabled:opacity-70"
+                            >
+                              <span className={!mat.name ? 'text-slate-400' : ''}>
+                                {mat.name || `Select material ${idx}`}
+                              </span>
+                              {!isReadOnly && (
+                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                              Material {idx} Quantity (meters/nos)
+                            </label>
+                            <input
+                              type="text"
+                              value={mat.quantity}
+                              onChange={(e) => {
+                                if (!isReadOnly) {
+                                  const newMats = [...materials];
+                                  newMats[i].quantity = e.target.value;
+                                  setMaterials(newMats);
+                                }
+                              }}
+                              readOnly={isReadOnly}
+                              placeholder="Enter quantity"
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
@@ -1249,7 +1200,7 @@ export default function CaseDetail() {
               <h3 className="text-lg font-bold text-slate-900">Select RCA Reason</h3>
             </div>
             <ul className="p-4 pb-8">
-              {RCA_OPTIONS.map((opt) => (
+              {rcaOptions.map((opt) => (
                 <li key={opt}>
                   <button
                     onClick={() => { setRcaReason(opt); setShowRcaSheet(false); }}
@@ -1268,6 +1219,124 @@ export default function CaseDetail() {
           </div>
         </div>
       )}
+      {/* Material Selection Sheet */}
+      {activeMaterialIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:p-4" onClick={() => setActiveMaterialIndex(null)}>
+          <div
+            className="w-full bg-white rounded-t-2xl sm:rounded-2xl max-w-lg overflow-hidden animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900">Select Material {activeMaterialIndex + 1}</h3>
+              <button onClick={() => setActiveMaterialIndex(null)} className="p-2 -mr-2 text-slate-400">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-2">
+              {materialOptions[activeMaterialIndex]?.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    const newMats = [...materials];
+                    newMats[activeMaterialIndex].name = opt;
+                    setMaterials(newMats);
+                    setActiveMaterialIndex(null);
+                  }}
+                  className={`w-full text-left px-4 py-3.5 rounded-xl transition flex items-center justify-between ${materials[activeMaterialIndex]?.name === opt ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                >
+                  <span>{opt}</span>
+                  {materials[activeMaterialIndex]?.name === opt && (
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Generic Cause Selection Sheet */}
+      {showGenericCauseSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:p-4" onClick={() => setShowGenericCauseSheet(false)}>
+          <div
+            className="w-full bg-white rounded-t-2xl sm:rounded-2xl max-w-lg overflow-hidden animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900">Select Generic Cause</h3>
+              <button onClick={() => setShowGenericCauseSheet(false)} className="p-2 -mr-2 text-slate-400">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-2">
+              {genericCauseOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    setGenericCauseOfCableCut(opt);
+                    setShowGenericCauseSheet(false);
+                  }}
+                  className={`w-full text-left px-4 py-3.5 rounded-xl transition flex items-center justify-between ${genericCauseOfCableCut === opt ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                >
+                  <span>{opt}</span>
+                  {genericCauseOfCableCut === opt && (
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delay Reason Selection Sheet */}
+      {showDelayReasonSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:p-4" onClick={() => setShowDelayReasonSheet(false)}>
+          <div
+            className="w-full bg-white rounded-t-2xl sm:rounded-2xl max-w-lg overflow-hidden animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900">Select Delay Reason</h3>
+              <button onClick={() => setShowDelayReasonSheet(false)} className="p-2 -mr-2 text-slate-400">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-2">
+              {delayReasonOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    setDelayReason(opt);
+                    setShowDelayReasonSheet(false);
+                  }}
+                  className={`w-full text-left px-4 py-3.5 rounded-xl transition flex items-center justify-between ${delayReason === opt ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                >
+                  <span>{opt}</span>
+                  {delayReason === opt && (
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

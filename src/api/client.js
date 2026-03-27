@@ -36,20 +36,18 @@ export async function updateCase(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       caseId,
-      Status: status,
-      rca_reason,
-      rca_comments,
-      feEmail: feEmail?.trim?.() || '', // FE who resolved - used to filter Resolved tab
-      // Salesforce API field names - required for RCA_Reason__c picklist to update
-      RCA_Reason__c: rca_reason,
-      RCA_Comments__c: rca_comments,
-      Material_Needed__c: materialNeeded,
-      Material1__c: material1,
-      Material_1_Quantity__c: material1Quantity,
-      Vendor_Name__c: vendorName,
-      Civil_Needed__c: civilNeeded,
-      ...extraFields,
+      ...updateFields,
     }),
   });
+  return res.json();
+}
+
+export async function getPicklistValues(object, field) {
+  const res = await fetch(`${API_BASE}/picklist/${object}/${field}`);
+  return res.json();
+}
+
+export async function getUniqueValues(object, field) {
+  const res = await fetch(`${API_BASE}/unique-values/${object}/${field}`);
   return res.json();
 }

@@ -36,6 +36,37 @@ export default function CaseItem({ case: c, onClick }) {
   const isFTTH = lobNormalized === 'ftth';
   const showSiteId = !isOHFC && !isFTTH;
 
+  const slaStatus = getVal(c, 'SLA_Status__c', 'slaStatus');
+  const calculateSla = getVal(c, 'Calculate_SLA__c', 'calculateSla');
+
+  const createdDateRaw = c.CreatedDate ?? c.createdDate;
+  const createdDate = createdDateRaw ? new Date(createdDateRaw) : null;
+  const formattedCreatedDate = createdDate
+    ? createdDate.toLocaleString('en-US', {
+      month: 'numeric', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+    })
+    : 'N/A';
+
+  const getSlaStatus = () => {
+    if (!createdDate) return null;
+    const now = new Date();
+    const target = new Date(createdDate.getTime() + 4 * 60 * 60 * 1000);
+    const diffMs = now - target;
+    const isOverdue = diffMs > 0;
+    const absDiff = Math.abs(diffMs);
+    const hours = Math.floor(absDiff / (1000 * 60 * 60));
+    const mins = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const timeStr = `${hours}:${mins < 10 ? '0' : ''}${mins}`;
+
+    return {
+      label: isOverdue ? `${timeStr} overdue` : `${timeStr} remaining`,
+      isOverdue
+    };
+  };
+
+  const slaInfo = getSlaStatus();
+
   return (
     <li>
       <button
@@ -66,6 +97,29 @@ export default function CaseItem({ case: c, onClick }) {
                   {actualIncidentTimeCustomer}
                 </dd>
               </div>
+
+              {(slaStatus !== 'N/A' || calculateSla !== 'N/A') && (
+                <div className="min-w-0 sm:col-span-2 border-t border-slate-100 pt-2 mt-1">
+                  <dt className="text-slate-500 font-medium flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    SLA Status
+                  </dt>
+                  <dd className="flex items-center gap-2">
+                    <span className={`text-sm font-bold ${slaStatus.toLowerCase().includes('breach') ? 'text-red-600' :
+                      slaStatus.toLowerCase().includes('met') ? 'text-emerald-600' : 'text-slate-700'
+                      }`}>
+                      {slaStatus}
+                    </span>
+                    {calculateSla !== 'N/A' && (
+                      <span className="text-xs text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded">
+                        {calculateSla}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              )}
 
               {isOHFC && (
                 <>
@@ -98,6 +152,23 @@ export default function CaseItem({ case: c, onClick }) {
                   </div>
                 </>
               )}
+
+              <div className="min-w-0 sm:col-span-2 border-t border-slate-100 pt-2 mt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-slate-500 font-medium">Created Date</dt>
+                    <dd className="text-slate-700">{formattedCreatedDate}</dd>
+                  </div>
+                  {slaInfo && (
+                    <div>
+                      <dt className="text-slate-500 font-medium">SLA (4 Hours)</dt>
+                      <dd className={`font-bold ${slaInfo.isOverdue ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {slaInfo.label}
+                      </dd>
+                    </div>
+                  )}
+                </div>
+              </div>
             </dl>
           </div>
           <StatusChip status={status} />

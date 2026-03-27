@@ -1,0 +1,25 @@
+{
+  "users": {
+    "b.itap@cloudextel.com": {
+      "subscriptions": [
+        {
+          "endpoint": "https://fcm.googleapis.com/fcm/send/e0TJtnD8y1M:APA91bH5qi6gnNM_fR6RsIgw_4JJLAYiDHvDyYV4zEL_YkbzsQJvuTVM2PlicPv5rYNFCrNXBg63dolPJsrj1xKOAATPDOdwu7s-OAEsgVZ-vOX_gczfiOQWXADOJK9ZIDXIUAfNjyxL",
+          "expirationTime": null,
+          "keys": {
+            "p256dh": "BN0g8bSH3pnf6To1ZXga0UyOKxRK6r2LSSI8wMAhDcIajKjOcbu5OoNf9wXwVVYOV1MikeQDmzHVcYQco5-GPGw",
+            "auth": "XWEd1PUemDhNJuOl3zDA9w"
+          }
+        },
+        {
+          "endpoint": "https://fcm.googleapis.com/fcm/send/falkd3M6a_Y:APA91bGIbpsdwJUM3Mdrnd8-yQVGArgKCM9vd4Cl_q7KoPfaehRhSFHjkqWWqYod71vrHnSos9bkrEbyJryaOy_jwSRo3f4UtCseVDSmpHeccA0szp8IdhSKfttjjq4oJmRxF_Zn5fyb",
+          "expirationTime": null,
+          "keys": {
+            "p256dh": "BJ7dgS1V2Q_K07aUeqk5YOPat8eImTO7bdpZYNWemEDznd83Gu4R3MiiQmNZ_IgObhLC4NhqiKDDVjyfx9hOO_Q",
+            "auth": "_V7V7coMORAZEeFkdZ3iqA"
+          }
+        }
+      ],
+      "lastSeenCaseIds": []
+    }
+  }
+}

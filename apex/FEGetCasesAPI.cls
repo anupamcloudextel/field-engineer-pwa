@@ -21,11 +21,15 @@ global with sharing class FEGetCasesAPI {
 
             Map<String, Schema.SObjectField> caseFields = Schema.SObjectType.Case.fields.getMap();
             List<String> selectFields = new List<String>{
-                'Id','CaseNumber','Status','Site_ID__c','Alarm_Name__c','Line_of_Business__c','Origin','Site__r.IPEmail__c','ExtIPEmail__c',
+                'Id','CaseNumber','Status','Site_ID__c','Alarm_Name__c','Line_of_Business__c','Origin','Site__r.IPEmail__c','ExtIPEmail__c','CreatedDate',
                 'RCA_Reason__c','RCA_Comments__c','Resolved_By_FE_Email__c',
                 'Circuit_ID__c','CustomerCircuitId__c','Console_Route_ID__c','PathName__c',
                 'GPON_ID__c','FAT_Number__c',
                 'Material_Needed__c','Material1__c','Material_1_Quantity__c',
+                'Material2__c','Material_2_Quantity__c',
+                'Material3__c','Material_3_Quantity__c',
+                'Material4__c','Material_4_Quantity__c',
+                'Material5__c','Material_5_Quantity__c',
                 'Vendor_Name__c','Civil_Needed__c',
                 'Restoration_Update_1__c','Restoration_Update_1_Date_Time__c',
                 'Restoration_Update_2__c','Restoration_Update_2_Date_Time__c',
@@ -40,8 +44,21 @@ global with sharing class FEGetCasesAPI {
                 'Vendor_Update_3__c','Vendor_Update_3_Date_Time__c',
                 'Vendor_Update_4__c','Vendor_Update_4_Date_Time__c',
                 'Vendor_Update_5__c','Vendor_Update_5_Date_Time__c',
-                'Check_The_Link_Status_Date_Time__c','Generic_Cause_of_Cable_Cut__c','Delay_Reason__c','Laser_Status__c'
+                'Check_The_Link_Status_Date_Time__c','Generic_Cause_of_Cable_Cut__c','Delay_Reason__c','Laser_Status__c',
+                'Delay_Comments__c','Field_Engineer_formula__c','LEPTON_Network_Id__c','Calculate_SLA__c','SLA_Status__c'
             };
+            
+            // Add Vendor Update 6-10 candidates
+            List<String> vendorUpdateExtraCandidates = new List<String>{
+                'Vendor_Update_6__c','Vendor_Update_6_Date_Time__c',
+                'Vendor_Update_7__c','Vendor_Update_7_Date_Time__c',
+                'Vendor_Update_8__c','Vendor_Update_8_Date_Time__c',
+                'Vendor_Update_9__c','Vendor_Update_9_Date_Time__c',
+                'Vendor_Update_10__c','Vendor_Update_10_Date_Time__c'
+            };
+            for (String f : vendorUpdateExtraCandidates) {
+                if (caseFields.containsKey(f) && !selectFields.contains(f)) selectFields.add(f);
+            }
 
             // Customer Update fields may exist with different API names; include whatever exists.
             List<String> customerUpdateCandidates = new List<String>{
@@ -59,7 +76,13 @@ global with sharing class FEGetCasesAPI {
                 'Restoration_Update_1__c','Restoration_Update_1_Date_Time__c',
                 'Restoration_Update_2__c','Restoration_Update_2_Date_Time__c',
                 'Restoration_Update_3__c','Restoration_Update_3_Date_Time__c',
-                'Restoration_Update_4__c','Restoration_Update_4_Date_Time__c'
+                'Restoration_Update_4__c','Restoration_Update_4_Date_Time__c',
+                'Restoration_Update_5__c','Restoration_Update_5_Date_Time__c',
+                'Restoration_Update_6__c','Restoration_Update_6_Date_Time__c',
+                'Restoration_Update_7__c','Restoration_Update_7_Date_Time__c',
+                'Restoration_Update_8__c','Restoration_Update_8_Date_Time__c',
+                'Restoration_Update_9__c','Restoration_Update_9_Date_Time__c',
+                'Restoration_Update_10__c','Restoration_Update_10_Date_Time__c'
             };
             for (String f : restorationUpdateCandidates) {
                 if (caseFields.containsKey(f) && !selectFields.contains(f)) selectFields.add(f);
