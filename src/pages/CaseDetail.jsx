@@ -55,6 +55,15 @@ export default function CaseDetail() {
   const [cableEndReading, setCableEndReading] = useState('');
   const [aEndLatlong, setAEndLatlong] = useState('');
   const [bEndLatlong, setBEndLatlong] = useState('');
+  const [extraFeUpdateCount, setExtraFeUpdateCount] = useState(0);
+  const [vendorUpdateCount, setVendorUpdateCount] = useState(0);
+
+  // Access Issue Fields
+  const [accessIssueYesNo, setAccessIssueYesNo] = useState('');
+  const [accessIssue, setAccessIssue] = useState('');
+  const [accessGranted, setAccessGranted] = useState('');
+  const [accessGrantedDateTime, setAccessGrantedDateTime] = useState('');
+  const [remarkForAccessIssue, setRemarkForAccessIssue] = useState('');
   const [visibleVendorUpdates, setVisibleVendorUpdates] = useState(1);
   const [vendorUpdates, setVendorUpdates] = useState(
     Array.from({ length: 10 }, () => ({ text: '', dateTime: '' }))
@@ -227,10 +236,18 @@ export default function CaseDetail() {
           // Prioritize Field_Engineer_formula__c as requested
           const vn = found.Field_Engineer_formula__c || found.fieldEngineerFormula || found.Vendor_Name__c || found.vendorName || '';
           setVendorName(vn);
+
+          // Initialize Access Issue Fields in correct scope
+          setAccessIssueYesNo(found.Access_Issue_YES_NO__c || '');
+          setAccessIssue(toDatetimeLocal(found.Access_Issue__c || ''));
+          setAccessGranted(found.Access_Granted__c || '');
+          setAccessGrantedDateTime(toDatetimeLocal(found.Access_Granted_Date_Time__c || ''));
+          setRemarkForAccessIssue(found.Remark_For_Access_Issue__c || '');
         } else {
           setError('Case not found');
         }
-      } catch {
+      } catch (err) {
+        console.error('Error loading case:', err);
         setError('Failed to load case');
       } finally {
         setLoading(false);
@@ -303,6 +320,11 @@ export default function CaseDetail() {
         }, {}),
         Vendor_Name__c: vendorName,
         Civil_Needed__c: civilNeeded,
+        Access_Issue_YES_NO__c: accessIssueYesNo,
+        Access_Issue__c: accessIssue,
+        Access_Granted__c: accessGranted,
+        Access_Granted_Date_Time__c: accessGrantedDateTime,
+        Remark_For_Access_Issue__c: remarkForAccessIssue,
         ...restorationUpdates.reduce((acc, curr, i) => {
           const idx = i + 1;
           acc[`Restoration_Update_${idx}__c`] = curr.text;
@@ -608,6 +630,89 @@ export default function CaseDetail() {
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Access Issue Fields */}
+                <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-slate-100 pb-4 mb-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Access Issue (YES/NO)</label>
+                    <select
+                      value={accessIssueYesNo || ''}
+                      onChange={(e) => {
+                        if (!isReadOnly) {
+                          const v = e.target.value;
+                          setAccessIssueYesNo(v);
+                          if (v !== 'YES') {
+                            setAccessIssue('');
+                            setAccessGranted('');
+                            setAccessGrantedDateTime('');
+                          }
+                        }
+                      }}
+                      disabled={isReadOnly}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                    >
+                      <option value="">Select</option>
+                      {YES_NO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
+
+                  {accessIssueYesNo === 'YES' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Access Issue (Date/Time)</label>
+                        <input
+                          type="datetime-local"
+                          value={accessIssue || ''}
+                          onChange={(e) => !isReadOnly && setAccessIssue(e.target.value)}
+                          readOnly={isReadOnly}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Access Granted (YES/NO)</label>
+                        <select
+                          value={accessGranted || ''}
+                          onChange={(e) => {
+                            if (!isReadOnly) {
+                              const v = e.target.value;
+                              setAccessGranted(v);
+                              if (v !== 'YES') setAccessGrantedDateTime('');
+                            }
+                          }}
+                          disabled={isReadOnly}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                        >
+                          <option value="">Select</option>
+                          {YES_NO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                      {accessGranted === 'YES' && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">Access Granted Date/Time</label>
+                          <input
+                            type="datetime-local"
+                            value={accessGrantedDateTime || ''}
+                            onChange={(e) => !isReadOnly && setAccessGrantedDateTime(e.target.value)}
+                            readOnly={isReadOnly}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Access Issue Reason</label>
+                    <textarea
+                      value={remarkForAccessIssue}
+                      onChange={(e) => !isReadOnly && setRemarkForAccessIssue(e.target.value)}
+                      readOnly={isReadOnly}
+                      rows={2}
+                      placeholder="Enter access issue reason..."
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
+                    />
+                  </div>
+                </div>
+
                 {restorationUpdates.slice(0, visibleUpdates).map((update, i) => {
                   const idx = i + 1;
                   return (

@@ -18,19 +18,7 @@ export async function getCases(email) {
   return res.json();
 }
 
-export async function updateCase(
-  caseId,
-  status,
-  rca_reason,
-  rca_comments,
-  feEmail,
-  materialNeeded,
-  material1,
-  material1Quantity,
-  vendorName,
-  civilNeeded,
-  extraFields = {}
-) {
+export async function updateCase(caseId, updateFields = {}) {
   const res = await fetch(`${API_BASE}/cases/update`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

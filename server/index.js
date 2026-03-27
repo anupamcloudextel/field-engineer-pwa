@@ -67,14 +67,13 @@ async function callSalesforce(path, options = {}) {
     const response = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
         ...(options.headers || {}),
       },
     });
 
     if (response.status === 401 && !retry) {
-      // Access token likely expired – clear cache and retry once
       cachedToken = null;
       return doCall(true);
     }
@@ -129,6 +128,68 @@ app.put('/api/cases/update', async (req, res) => {
     });
     const data = await response.json();
     res.status(response.status).json(data);
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/picklist/:object/:field', async (req, res) => {
+  try {
+    const { object, field } = req.params;
+    const apiVersion = process.env.SALESFORCE_API_VERSION || '59.0';
+
+    // 1. Get object info to find default record type ID
+    const objRes = await callSalesforce(`/services/data/v${apiVersion}/ui-api/object-info/${object}`, {
+      method: 'GET',
+    });
+
+    if (!objRes.ok) {
+      const err = await objRes.text();
+      return res.status(objRes.status).json({ success: false, message: `Failed to fetch object info: ${err}` });
+    }
+
+    const objData = await objRes.json();
+    const rtId = objData.defaultRecordTypeId || '012000000000000AAA';
+
+    // 2. Fetch picklist values for the field
+    const pkRes = await callSalesforce(
+      `/services/data/v${apiVersion}/ui-api/object-info/${object}/picklist-values/${rtId}/${field}`,
+      { method: 'GET' }
+    );
+
+    if (!pkRes.ok) {
+      const err = await pkRes.text();
+      return res.status(pkRes.status).json({ success: false, message: `Failed to fetch picklist values: ${err}` });
+    }
+
+    const pkData = await pkRes.json();
+    const values = (pkData.values || []).map((v) => v.label);
+
+    res.json({ success: true, values });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/unique-values/:object/:field', async (req, res) => {
+  const { object, field } = req.params;
+  try {
+    const apiVersion = process.env.SALESFORCE_API_VERSION || '59.0';
+    const soql = `SELECT ${field} FROM ${object} WHERE ${field} != null ORDER BY CreatedDate DESC LIMIT 2000`;
+    const response = await callSalesforce(`/services/data/v${apiVersion}/query?q=${encodeURIComponent(soql)}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(response.status).json({ success: false, message: `Failed to fetch unique values: ${err}` });
+    }
+
+    const data = await response.json();
+    const rawValues = (data.records || []).map(r => r[field]);
+    const values = Array.from(new Set(rawValues)).filter(Boolean).sort();
+
+    res.json({ success: true, values });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
