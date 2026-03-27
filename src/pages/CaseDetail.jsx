@@ -138,7 +138,7 @@ export default function CaseDetail() {
               return { name, quantity: qty };
             })
           );
-          
+
           // Calculate max visible for Materials
           let maxMatVisible = 1;
           for (let i = 5; i >= 1; i--) {
@@ -163,7 +163,7 @@ export default function CaseDetail() {
               return { text, dateTime: dt };
             })
           );
-          
+
           // Calculate max visible based on data
           let maxVisible = 1;
           for (let i = 10; i >= 1; i--) {
@@ -205,13 +205,13 @@ export default function CaseDetail() {
               const idx = i + 1;
               const textValue = found[`Vendor_Update_${idx}__c`] || found[`vendorUpdate${idx}`];
               const dtValue = found[`Vendor_Update_${idx}_Date_Time__c`] || found[`vendorUpdate${idx}DateTime`];
-              return { 
-                text: textValue ? String(textValue) : '', 
-                dateTime: dtValue ? toDatetimeLocal(dtValue) : '' 
+              return {
+                text: textValue ? String(textValue) : '',
+                dateTime: dtValue ? toDatetimeLocal(dtValue) : ''
               };
             })
           );
-          
+
           // Calculate max visible for Vendor Updates
           let maxVendorVisible = 1;
           for (let i = 10; i >= 1; i--) {
@@ -255,9 +255,9 @@ export default function CaseDetail() {
     }
     async function loadPicklists() {
       const picklistFields = [
-        ...Array.from({ length: 5 }, (_, i) => ({ 
-          key: `Material${i + 1}__c`, 
-          index: i 
+        ...Array.from({ length: 5 }, (_, i) => ({
+          key: `Material${i + 1}__c`,
+          index: i
         })),
         { key: 'RCA_Reason__c', setter: setRcaOptions },
         { key: 'Generic_Cause_of_Cable_Cut__c', setter: setGenericCauseOptions },
@@ -428,6 +428,14 @@ export default function CaseDetail() {
   const gponId = getVal(caseData, 'GPON_ID__c', 'GPONID__c', 'gponId');
   const fatNumber = getVal(caseData, 'FAT_Number__c', 'FATNumber__c', 'fatNumber');
 
+  // Site A & Z fields
+  const siteAAddress = getVal(caseData, 'SiteAddress__c', 'siteAAddress');
+  const siteZAddress = getVal(caseData, 'ZSiteAddress__c', 'siteZAddress');
+  const siteALat = getVal(caseData, 'SiteLatitude__c', 'siteALat');
+  const siteALong = getVal(caseData, 'SiteLongitude__c', 'siteALong');
+  const siteZLat = getVal(caseData, 'SiteZLatitude__c', 'siteZLat');
+  const siteZLong = getVal(caseData, 'SiteZLongitude__c', 'siteZLong');
+
   const isSmallCell = lobNormalized === 'small cell';
   const isOHFC = lobNormalized === 'ohfc';
   const isFTTH = lobNormalized === 'ftth';
@@ -557,6 +565,33 @@ export default function CaseDetail() {
                 </p>
               </>
             )}
+
+            <div className="pt-2 border-t border-slate-100 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <p className="flex items-baseline gap-2 text-slate-600">
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site A Address:</span> 
+                  <span className="truncate" title={siteAAddress}>{siteAAddress}</span>
+                </p>
+                <p className="flex items-baseline gap-2 text-slate-600">
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site Z Address:</span>
+                  <span className="truncate" title={siteZAddress}>{siteZAddress}</span>
+                </p>
+                
+                <p className="flex items-baseline gap-2 text-slate-600">
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site A Latitude:</span> {siteALat}
+                </p>
+                <p className="flex items-baseline gap-2 text-slate-600">
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site Z Latitude:</span> {siteZLat}
+                </p>
+                
+                <p className="flex items-baseline gap-2 text-slate-600">
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site A Longitude:</span> {siteALong}
+                </p>
+                <p className="flex items-baseline gap-2 text-slate-600">
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site Z Longitude:</span> {siteZLong}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -628,7 +663,7 @@ export default function CaseDetail() {
                   </button>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Access Issue Fields */}
                 <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-slate-100 pb-4 mb-2">
@@ -1016,7 +1051,7 @@ export default function CaseDetail() {
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {vendorUpdates.slice(0, visibleVendorUpdates).map((update, i) => {
                       const idx = i + 1;
