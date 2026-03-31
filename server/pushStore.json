@@ -3,31 +3,23 @@
     "b.itap@cloudextel.com": {
       "subscriptions": [
         {
-          "endpoint": "https://fcm.googleapis.com/fcm/send/erxfwGaDTio:APA91bGqTfPMpTjtAGav0kBGsCzo82zeQfcOgn8iG2BqqB_qyN4W1SJiAuU0INblSFJfiZ5W5Um5hcRz00978QB5QHxOvxK7-9aHzg3WXDYfQ63-McY1X2qeXK-1ZTNW_q3CQ-vqegUQ",
+          "endpoint": "https://fcm.googleapis.com/fcm/send/e0TJtnD8y1M:APA91bH5qi6gnNM_fR6RsIgw_4JJLAYiDHvDyYV4zEL_YkbzsQJvuTVM2PlicPv5rYNFCrNXBg63dolPJsrj1xKOAATPDOdwu7s-OAEsgVZ-vOX_gczfiOQWXADOJK9ZIDXIUAfNjyxL",
           "expirationTime": null,
           "keys": {
-            "p256dh": "BI8ibwAAhmOvJbXT3oNhzw2fJYNv8dLPQB1akS2ZL7k1mUZm6wCQSUpTWejUtv4ROWQk3YfGBdimtGfq5UPBzw8",
-            "auth": "4MTKveUABCGGq4nr_nKlmA"
+            "p256dh": "BN0g8bSH3pnf6To1ZXga0UyOKxRK6r2LSSI8wMAhDcIajKjOcbu5OoNf9wXwVVYOV1MikeQDmzHVcYQco5-GPGw",
+            "auth": "XWEd1PUemDhNJuOl3zDA9w"
           }
         },
         {
-          "endpoint": "https://fcm.googleapis.com/fcm/send/dvnfCHA-If0:APA91bE2BIn5Gkmhlt7oQBeSGxlXzdEwPd7zEvqRDuiFjX4ruoOVGT-Nv1bIzxowk-Zh7MQhQ4rzXsrMj70vd3uOfI9XqU_s7ydbVGVgIazI-ngZg-aA6S6aW8A7qgwrNr20SKuc1rFK",
+          "endpoint": "https://fcm.googleapis.com/fcm/send/falkd3M6a_Y:APA91bGIbpsdwJUM3Mdrnd8-yQVGArgKCM9vd4Cl_q7KoPfaehRhSFHjkqWWqYod71vrHnSos9bkrEbyJryaOy_jwSRo3f4UtCseVDSmpHeccA0szp8IdhSKfttjjq4oJmRxF_Zn5fyb",
           "expirationTime": null,
           "keys": {
-            "p256dh": "BMkROt8GUzE07cB2A0-__OqeuraKX5wFGcdOvBYsuiVcFf6KyvTSGFfGw5CkWr5AqTV9lgbd2MgOYdoDAxn8CK0",
-            "auth": "AG4dRkkkJZWHX0feJW0txA"
+            "p256dh": "BJ7dgS1V2Q_K07aUeqk5YOPat8eImTO7bdpZYNWemEDznd83Gu4R3MiiQmNZ_IgObhLC4NhqiKDDVjyfx9hOO_Q",
+            "auth": "_V7V7coMORAZEeFkdZ3iqA"
           }
         }
       ],
-      "lastSeenCaseIds": [
-        "500HF00000EfAt1YAF",
-        "500HF00000Ef0VuYAJ",
-        "500HF00000EeIEOYA3",
-        "500HF00000Ea8DVYAZ",
-        "500HF00000EWUUTYA5",
-        "500HF00000Dl6QnYAJ",
-        "500HF00000DhQ4cYAF"
-      ]
+      "lastSeenCaseIds": []
     }
   }
 }
