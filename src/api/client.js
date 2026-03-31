@@ -18,6 +18,20 @@ export async function getCases(email) {
   return res.json();
 }
 
+export async function getVapidPublicKey() {
+  const res = await fetch(`${API_BASE}/push/vapidPublicKey`, { method: 'GET' });
+  return res.json();
+}
+
+export async function subscribePush(email, subscription) {
+  const res = await fetch(`${API_BASE}/push/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), subscription }),
+  });
+  return res.json();
+}
+
 export async function updateCase(caseId, updateFields = {}) {
   const res = await fetch(`${API_BASE}/cases/update`, {
     method: 'PUT',
