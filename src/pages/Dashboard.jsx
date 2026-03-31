@@ -73,12 +73,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
+    let successTimer = null;
     async function initPush() {
       if (!email) return;
       try {
         const res = await enableCasePushNotifications(email);
         if (cancelled) return;
-        if (res?.success) setPushStatus(res.alreadySubscribed ? 'Notifications enabled' : 'Notifications enabled');
+        if (res?.success) {
+          setPushStatus('Notifications enabled');
+          successTimer = setTimeout(() => {
+            if (!cancelled) setPushStatus('');
+          }, 2500);
+        }
         else if (res?.message) setPushStatus(res.message);
       } catch {
         if (!cancelled) setPushStatus('Push setup failed (check browser notification permission / HTTPS / VAPID keys)');
@@ -87,6 +93,7 @@ export default function Dashboard() {
     initPush();
     return () => {
       cancelled = true;
+      if (successTimer) clearTimeout(successTimer);
     };
   }, [email]);
 

@@ -6,6 +6,8 @@ import { dirname, join } from 'path';
 import { config } from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import webpush from 'web-push';
+import { removeSubscription, upsertSubscription } from './pushStore.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = join(rootDir, 'dist');
@@ -61,6 +63,13 @@ if (!isProduction) {
 }
 
 let cachedToken = null;
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 
 async function getOAuthToken() {
   if (cachedToken) return cachedToken;
@@ -158,6 +167,36 @@ app.put('/api/cases/update', async (req, res) => {
     res.status(response.status).json(data);
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/push/vapidPublicKey', (_, res) => {
+  if (!VAPID_PUBLIC_KEY) {
+    return res.status(503).json({ error: 'Push is not configured (missing VAPID_PUBLIC_KEY)' });
+  }
+  return res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+      return res.status(503).json({ error: 'Push is not configured (missing VAPID keys)' });
+    }
+    const { email, subscription } = req.body || {};
+    await upsertSubscription(email, subscription);
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  try {
+    const { email, endpoint } = req.body || {};
+    await removeSubscription(email, endpoint);
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
   }
 });
 
