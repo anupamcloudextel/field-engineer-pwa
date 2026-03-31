@@ -4,6 +4,8 @@ import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = join(rootDir, 'dist');
@@ -14,22 +16,48 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
-app.use(express.json());
+function requireEnv(name) {
+  const v = process.env[name];
+  if (!v || !String(v).trim()) throw new Error(`Missing required environment variable: ${name}`);
+  return v;
+}
+
+// Fail fast in production if required vars are missing
+if (isProduction) {
+  requireEnv('SALESFORCE_CLIENT_ID');
+  requireEnv('SALESFORCE_CLIENT_SECRET');
+  requireEnv('SALESFORCE_USERNAME');
+  requireEnv('SALESFORCE_PASSWORD');
+  requireEnv('VAPID_PUBLIC_KEY');
+  requireEnv('VAPID_PRIVATE_KEY');
+}
+
+app.disable('x-powered-by');
+if (isProduction) app.set('trust proxy', 1);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // app loads Google Fonts; set CSP at your reverse proxy when you have final domain
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+app.use(express.json({ limit: '1mb' }));
+
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: isProduction ? 300 : 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
 
 if (!isProduction) {
-  app.use(
-    cors({
-      origin: true,
-      credentials: true,
-    })
-  );
+  app.use(cors({ origin: true, credentials: true }));
 } else if (process.env.CORS_ORIGINS) {
-  app.use(
-    cors({
-      origin: process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()),
-      credentials: true,
-    })
-  );
+  const allowed = process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean);
+  app.use(cors({ origin: allowed, credentials: true }));
 }
 
 let cachedToken = null;

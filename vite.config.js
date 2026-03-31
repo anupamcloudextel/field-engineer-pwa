@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['company-logo.svg'],
+      includeAssets: ['company-logo.svg', 'push-sw.js'],
       manifest: {
         name: 'Field Engineer Portal',
         short_name: 'FE Portal',
@@ -29,6 +29,7 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        importScripts: ['/push-sw.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -65,7 +66,7 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
-    allowedHosts: true,
+    allowedHosts: ['.trycloudflare.com', 'localhost', '127.0.0.1'],
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
