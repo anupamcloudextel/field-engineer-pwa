@@ -13,6 +13,7 @@ export default function CaseDetail() {
   const navigate = useNavigate();
   const { email } = useAuth();
   const readOnlyParam = searchParams.get('readOnly') === 'true';
+  //const readOnlyParam = searchParams.get('readOnly') === 'false';
 
   const [caseData, setCaseData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,7 @@ export default function CaseDetail() {
   const [bEndLatlong, setBEndLatlong] = useState('');
   const [extraFeUpdateCount, setExtraFeUpdateCount] = useState(0);
   const [vendorUpdateCount, setVendorUpdateCount] = useState(0);
+  const [currentStatusVendor, setCurrentStatusVendor] = useState('');
 
   // Access Issue Fields
   const [accessIssueYesNo, setAccessIssueYesNo] = useState('');
@@ -76,6 +78,7 @@ export default function CaseDetail() {
   const [showRcaSheet, setShowRcaSheet] = useState(false);
   const [showGenericCauseSheet, setShowGenericCauseSheet] = useState(false);
   const [showDelayReasonSheet, setShowDelayReasonSheet] = useState(false);
+  const [showCurrentStatusVendorSheet, setShowCurrentStatusVendorSheet] = useState(false);
 
   const [delayComments, setDelayComments] = useState('');
 
@@ -83,8 +86,10 @@ export default function CaseDetail() {
   const [rcaOptions, setRcaOptions] = useState([]);
   const [genericCauseOptions, setGenericCauseOptions] = useState([]);
   const [delayReasonOptions, setDelayReasonOptions] = useState([]);
+  const [currentStatusVendorOptions, setCurrentStatusVendorOptions] = useState([]);
 
-  const isReadOnly = readOnlyParam;
+  //const isReadOnly = readOnlyParam;
+  const isReadOnly = readOnlyParam && status.toLocaleLowerCase() !== 'resolved';
 
   const toDatetimeLocal = (v) => {
     if (v == null) return '';
@@ -243,6 +248,7 @@ export default function CaseDetail() {
           setAccessGranted(found.Access_Granted__c || '');
           setAccessGrantedDateTime(toDatetimeLocal(found.Access_Granted_Date_Time__c || ''));
           setRemarkForAccessIssue(found.Remark_For_Access_Issue__c || '');
+          setCurrentStatusVendor(found.current_Status__c || '');
         } else {
           setError('Case not found');
         }
@@ -262,6 +268,7 @@ export default function CaseDetail() {
         { key: 'RCA_Reason__c', setter: setRcaOptions },
         { key: 'Generic_Cause_of_Cable_Cut__c', setter: setGenericCauseOptions },
         { key: 'Delay_Reason__c', setter: setDelayReasonOptions },
+        { key: 'current_Status__c', setter: setCurrentStatusVendorOptions },
       ];
       try {
         await Promise.all([
@@ -358,9 +365,14 @@ export default function CaseDetail() {
         Delay_Reason__c: delayReason,
         Delay_Comments__c: delayComments,
         Laser_Status__c: laserStatus,
+        current_Status__c: currentStatusVendor,
       });
       if (res.success) {
-        setSuccess(status.toLowerCase() === 'resolved' ? 'The case has been resolved.' : 'Case updated successfully!');
+        // Check if the status was changed TO resolved vs it was ALREADY resolved
+        // Modify this line to handle both cases (Status and status)
+        const wasAlreadyResolved = (caseData?.Status || caseData?.status || '').toLowerCase() === 'resolved';
+        setSuccess(status.toLowerCase() === 'resolved' && !wasAlreadyResolved ? 'The case has been resolved.' : 'Case updated successfully!');
+        //setSuccess(status.toLowerCase() === 'resolved' ? 'The case has been resolved.' : 'Case updated successfully!');
       } else {
         setError(res.message || 'Update failed');
       }
@@ -427,6 +439,8 @@ export default function CaseDetail() {
   const lineName = getVal(caseData, 'PathName__c', 'Line_Name__c', 'LineName__c', 'Link_Name__c', 'lineName');
   const gponId = getVal(caseData, 'GPON_ID__c', 'GPONID__c', 'gponId');
   const fatNumber = getVal(caseData, 'FAT_Number__c', 'FATNumber__c', 'fatNumber');
+  const customerTid = getVal(caseData, 'Customer_TID__c', 'customerTid');
+  const ceCaseNumber = getVal(caseData, 'CECaseNumber__c', 'ceCaseNumber');
 
   // Site A & Z fields
   const siteAAddress = getVal(caseData, 'SiteAddress__c', 'siteAAddress');
@@ -524,6 +538,13 @@ export default function CaseDetail() {
               </p>
             )}
 
+            <p className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium text-slate-500">Customer Ticket ID:</span> {customerTid}
+            </p>
+            <p className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium text-slate-500">CE Case Number:</span> {ceCaseNumber}
+            </p>
+
             {/* Small Cell: Site ID, Alarm Name - hidden for OHFC and FTTH */}
             {(isSmallCell || (!isOHFC && !isFTTH)) && (
               <>
@@ -569,21 +590,21 @@ export default function CaseDetail() {
             <div className="pt-2 border-t border-slate-100 mt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                 <p className="flex items-baseline gap-2 text-slate-600">
-                  <span className="font-medium text-slate-500 whitespace-nowrap">Site A Address:</span> 
+                  <span className="font-medium text-slate-500 whitespace-nowrap">Site A Address:</span>
                   <span className="truncate" title={siteAAddress}>{siteAAddress}</span>
                 </p>
                 <p className="flex items-baseline gap-2 text-slate-600">
                   <span className="font-medium text-slate-500 whitespace-nowrap">Site Z Address:</span>
                   <span className="truncate" title={siteZAddress}>{siteZAddress}</span>
                 </p>
-                
+
                 <p className="flex items-baseline gap-2 text-slate-600">
                   <span className="font-medium text-slate-500 whitespace-nowrap">Site A Latitude:</span> {siteALat}
                 </p>
                 <p className="flex items-baseline gap-2 text-slate-600">
                   <span className="font-medium text-slate-500 whitespace-nowrap">Site Z Latitude:</span> {siteZLat}
                 </p>
-                
+
                 <p className="flex items-baseline gap-2 text-slate-600">
                   <span className="font-medium text-slate-500 whitespace-nowrap">Site A Longitude:</span> {siteALong}
                 </p>
@@ -804,6 +825,24 @@ export default function CaseDetail() {
                     placeholder="Vendor Name"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-70"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Status</label>
+                  <button
+                    type="button"
+                    onClick={() => !isReadOnly && setShowCurrentStatusVendorSheet(true)}
+                    disabled={isReadOnly}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-left flex items-center justify-between tap-highlight-none disabled:opacity-70"
+                  >
+                    <span className={!currentStatusVendor ? 'text-slate-400' : ''}>
+                      {currentStatusVendor || 'Select Current Status'}
+                    </span>
+                    {!isReadOnly && (
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Civil Needed</label>
@@ -1466,6 +1505,45 @@ export default function CaseDetail() {
                 >
                   <span>{opt}</span>
                   {delayReason === opt && (
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Current Status Vendor Selection Sheet */}
+      {showCurrentStatusVendorSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:p-4" onClick={() => setShowCurrentStatusVendorSheet(false)}>
+          <div
+            className="w-full bg-white rounded-t-2xl sm:rounded-2xl max-w-lg overflow-hidden animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900">Select Current Status</h3>
+              <button onClick={() => setShowCurrentStatusVendorSheet(false)} className="p-2 -mr-2 text-slate-400">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-2">
+              {currentStatusVendorOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    setCurrentStatusVendor(opt);
+                    setShowCurrentStatusVendorSheet(false);
+                  }}
+                  className={`w-full text-left px-4 py-3.5 rounded-xl transition flex items-center justify-between ${currentStatusVendor === opt ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                >
+                  <span>{opt}</span>
+                  {currentStatusVendor === opt && (
                     <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>

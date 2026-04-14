@@ -116,11 +116,10 @@ export default function Dashboard() {
             <button
               key={label}
               onClick={() => setTab(i)}
-              className={`flex-1 py-3 sm:py-4 text-sm font-medium transition tap-highlight-none ${
-                tab === i
+              className={`flex-1 py-3 sm:py-4 text-sm font-medium transition tap-highlight-none ${tab === i
                   ? 'text-indigo-600 border-b-2 border-indigo-600'
                   : 'text-slate-500 hover:text-slate-700'
-              }`}
+                }`}
             >
               {label}
             </button>
@@ -154,7 +153,8 @@ export default function Dashboard() {
                     <CaseItem
                       key={c.Id}
                       case={c}
-                      onClick={() => navigate(`/case/${c.Id}?readOnly=${!isAssignedTab}`)}
+                      //onClick={() => navigate(`/case/${c.Id}?readOnly=${!isAssignedTab}`)}
+                      onClick={() => navigate(`/case/${c.Id}?readOnly=${tab === 2}`)}
                     />
                   ))}
                 </ul>
